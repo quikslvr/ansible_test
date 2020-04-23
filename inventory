@@ -1,0 +1,2 @@
+[servers]
+client ansible_ssh_host=172.20.0.9 ansible_ssh_user=ansible

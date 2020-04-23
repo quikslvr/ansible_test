@@ -1,0 +1,12 @@
+---
+pkglist:
+  - git
+  - zsh
+  - nginx
+  - wget
+
+sysctl_settings:
+  fs.file-max: 1204000
+  net.core.somaxconn: 65535
+
+

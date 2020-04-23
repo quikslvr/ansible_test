@@ -1,0 +1,77 @@
+---
+- name: Install base packages
+  apt:
+    name: "{{ pkglist }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 86400
+
+- name: Clean default nginx vhost conf
+  file:
+    state: absent
+    path: "/etc/nginx/sites-enabled/default"
+  register: fresh_install
+
+- name: Clean /var/www path
+  file:
+    state: absent
+    path: "/var/www"
+  when: fresh_install.changed
+
+- name: Create a directory if it does not exist
+  file:
+    path: /var/www/
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Clone under-construction repo
+  git:
+    repo: https://github.com/quikslvr/under-construction.git
+    dest: /var/www/
+  become_user: www-data
+
+- name: Create Nginx site config
+  template:
+    src: '{{ role_path }}/templates/nginx-site.conf.j2'
+    dest: '/etc/nginx/sites-enabled/under-construction.conf'
+    owner: "{{ nginx_owner | default ('www-data') }}"
+    group: "{{ nginx_owner | default ('www-data') }}"
+    mode: 0640
+  notify:
+    - reload nginx
+
+- name: set sysctl settings
+  sysctl:
+    sysctl_set: yes
+    reload: yes
+    state: present
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+  with_dict: "{{ sysctl_settings }}"
+
+- name: Create a directory if it does not exist
+  file:
+    path: /root/.ssh/
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Set up multiple authorized keys
+  authorized_key:
+    user: root
+    state: present
+    key: '{{ item }}'
+  with_file:
+    - '{{ role_path }}/public_keys/doe-jane'
+    - '{{ role_path }}/public_keys/doe-john'
+
+- name: Enable remote root login
+  lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin yes"
+  notify: restart ssh
+
